@@ -11,6 +11,7 @@ __v0_jsx-dev-runtime.ts
 .env
 backend/.env
 backend/microservicio-*.json
+client_secret_*.json
 *.log
 local-bible-*.png
 qa-*.png

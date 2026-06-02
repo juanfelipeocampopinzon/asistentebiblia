@@ -32,6 +32,7 @@ async function main() {
       'backend',
       'backend/node_modules',
       'backend/microservicio-471115-754b0a449188.json',
+      'client_secret_*.json',
       '*.log'
     ]
   });
