@@ -3,9 +3,17 @@
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth/google-auth'
 import { LogIn, LogOut } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 
 export function GoogleSession() {
-  const { user, isConfigured, login, logout } = useAuth()
+  const { user, isConfigured, login, logout, renderButton } = useAuth()
+  const googleButtonRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!user && isConfigured && googleButtonRef.current) {
+      renderButton(googleButtonRef.current)
+    }
+  }, [isConfigured, renderButton, user])
 
   if (!isConfigured) {
     return (
@@ -17,10 +25,13 @@ export function GoogleSession() {
 
   if (!user) {
     return (
-      <Button variant="outline" size="sm" onClick={login} className="gap-2">
-        <LogIn className="h-4 w-4" />
-        Entrar
-      </Button>
+      <div className="min-h-8 min-w-[92px]">
+        <div ref={googleButtonRef} />
+        <Button variant="outline" size="sm" onClick={login} className="hidden gap-2">
+          <LogIn className="h-4 w-4" />
+          Entrar
+        </Button>
+      </div>
     )
   }
 

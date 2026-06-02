@@ -17,6 +17,7 @@ interface AuthContextValue {
   isConfigured: boolean
   login: () => void
   logout: () => void
+  renderButton: (container: HTMLElement) => void
 }
 
 declare global {
@@ -26,6 +27,8 @@ declare global {
         id: {
           initialize: (config: unknown) => void
           prompt: () => void
+          renderButton: (container: HTMLElement, config: unknown) => void
+          disableAutoSelect: () => void
         }
       }
     }
@@ -110,9 +113,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.google?.accounts.id.prompt()
     },
     logout: () => {
+      window.google?.accounts.id.disableAutoSelect()
       window.localStorage.removeItem(TOKEN_KEY)
       setToken(null)
       setUser(null)
+    },
+    renderButton: (container: HTMLElement) => {
+      if (!ready) return
+      container.innerHTML = ''
+      window.google?.accounts.id.renderButton(container, {
+        theme: 'outline',
+        size: 'medium',
+        type: 'standard',
+        shape: 'rectangular',
+        text: 'signin_with',
+        locale: 'es'
+      })
     }
   }), [clientId, ready, token, user])
 

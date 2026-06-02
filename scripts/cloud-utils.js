@@ -221,7 +221,8 @@ function cloudRunServiceBody({ serviceName, image, env = {} }) {
         metadata: {
           annotations: {
             'autoscaling.knative.dev/maxScale': '3',
-            'run.googleapis.com/startup-cpu-boost': 'true'
+            'run.googleapis.com/startup-cpu-boost': 'true',
+            'codex.openai.com/deploy-time': new Date().toISOString()
           }
         },
         spec: {
