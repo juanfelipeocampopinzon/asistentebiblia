@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { GitCompare, Sparkles, Loader2, Tags } from 'lucide-react'
 import { Verse } from '@/lib/bible/types'
 import { translations } from '@/lib/bible/data/translations'
@@ -87,7 +86,7 @@ ${depthInstruction}`
           <GitCompare className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl flex-col overflow-hidden">
+      <DialogContent className="max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitCompare className="h-5 w-5 text-primary" />
@@ -101,15 +100,15 @@ ${depthInstruction}`
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value); setAnalysis(null); setError(null) }} className="flex min-h-0 flex-1 flex-col">
+        <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value); setAnalysis(null); setError(null) }} className="flex flex-col">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="translations">Traducciones</TabsTrigger>
             <TabsTrigger value="verses">Versículos</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="translations" className="mt-4 flex min-h-0 flex-1 flex-col gap-4">
-            <ScrollArea className="min-h-0 flex-1 rounded-lg border">
-              <div className="grid gap-3 p-3">
+          <TabsContent value="translations" className="mt-4 flex flex-col gap-4">
+            <div className="max-h-64 overflow-y-auto rounded-lg border p-3">
+              <div className="grid gap-3">
               {translations.map((item) => {
                 const comparison = comparisons.find(result => result.translation === item.id)
 
@@ -132,7 +131,7 @@ ${depthInstruction}`
                 </div>
               )})}
               </div>
-            </ScrollArea>
+            </div>
 
             {user ? (
               <div className="shrink-0 space-y-3">
@@ -169,7 +168,7 @@ ${depthInstruction}`
             )}
           </TabsContent>
 
-          <TabsContent value="verses" className="mt-4 flex min-h-0 flex-1 flex-col gap-4">
+          <TabsContent value="verses" className="mt-4 flex flex-col gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Versículo actual:</label>
               <div className="border rounded-lg p-3 bg-muted/50">
@@ -220,8 +219,8 @@ ${depthInstruction}`
           )}
 
           {analysis && (
-            <ScrollArea className="mt-4 min-h-0 flex-1 overflow-hidden rounded-lg border bg-primary/5">
-              <div className="space-y-3 p-4">
+            <div className="mt-4 max-h-72 overflow-y-auto rounded-lg border bg-primary/5 p-4">
+              <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
                   <span className="font-semibold text-primary">Análisis IA</span>
@@ -238,7 +237,7 @@ ${depthInstruction}`
                   </div>
                 )}
               </div>
-            </ScrollArea>
+            </div>
           )}
         </Tabs>
       </DialogContent>
