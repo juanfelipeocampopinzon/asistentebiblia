@@ -25,6 +25,7 @@ export function AICompare({ verse, book, bookName, chapter, translation }: AICom
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('translations')
+  const [depth, setDepth] = useState<'brief' | 'deep'>('brief')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState<BibleAIResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -35,18 +36,24 @@ export function AICompare({ verse, book, bookName, chapter, translation }: AICom
     setAnalysis(null)
     setError(null)
 
+    const depthInstruction = depth === 'deep'
+      ? 'Responde con un análisis profundo de 300 a 450 palabras, usando secciones cortas y claras.'
+      : 'Responde con un análisis breve de 90 a 130 palabras, claro y directo.'
+
     const prompt = activeTab === 'translations'
       ? `Compara ${bookName} ${chapter}:${verse.number} en distintas traducciones bíblicas.
 
 Textos disponibles:
 ${comparisons.map(item => `${item.abbreviation}: "${item.text}"`).join('\n') || `${translation.toUpperCase()}: "${verse.text}"`}
 
-Explica matices entre Reina-Valera y KJV. Menciona diferencias de traducción formal/dinámica y el idioma original cuando sea relevante.`
+Explica matices entre Reina-Valera y KJV. Menciona diferencias de traducción formal/dinámica y el idioma original cuando sea relevante.
+${depthInstruction}`
       : `Compara ${bookName} ${chapter}:${verse.number} con pasajes paralelos o relacionados.
 
 Texto base (${translation.toUpperCase()}): "${verse.text}"
 
-Sugiere versículos relacionados y explica similitudes, diferencias y énfasis teológico.`
+Sugiere versículos relacionados y explica similitudes, diferencias y énfasis teológico.
+${depthInstruction}`
 
     try {
       setAnalysis(await askBibleAI(prompt))
@@ -80,7 +87,7 @@ Sugiere versículos relacionados y explica similitudes, diferencias y énfasis t
           <GitCompare className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitCompare className="h-5 w-5 text-primary" />
@@ -94,14 +101,15 @@ Sugiere versículos relacionados y explica similitudes, diferencias y énfasis t
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value); setAnalysis(null); setError(null) }} className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value); setAnalysis(null); setError(null) }} className="flex min-h-0 flex-1 flex-col">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="translations">Traducciones</TabsTrigger>
             <TabsTrigger value="verses">Versículos</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="translations" className="flex-1 flex flex-col gap-4 mt-4">
-            <div className="grid gap-3">
+          <TabsContent value="translations" className="mt-4 flex min-h-0 flex-1 flex-col gap-4">
+            <ScrollArea className="min-h-0 flex-1 rounded-lg border">
+              <div className="grid gap-3 p-3">
               {translations.map((item) => {
                 const comparison = comparisons.find(result => result.translation === item.id)
 
@@ -123,13 +131,34 @@ Sugiere versículos relacionados y explica similitudes, diferencias y énfasis t
                   </p>
                 </div>
               )})}
-            </div>
+              </div>
+            </ScrollArea>
 
             {user ? (
-              <Button onClick={handleAnalyze} disabled={isAnalyzing} className="gap-2">
-                {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {isAnalyzing ? 'Analizando...' : 'Analizar diferencias con IA'}
-              </Button>
+              <div className="shrink-0 space-y-3">
+                <div className="grid grid-cols-2 rounded-md border bg-muted/40 p-1">
+                  <Button
+                    type="button"
+                    variant={depth === 'brief' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setDepth('brief')}
+                  >
+                    Breve
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={depth === 'deep' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setDepth('deep')}
+                  >
+                    Profundo
+                  </Button>
+                </div>
+                <Button onClick={handleAnalyze} disabled={isAnalyzing} className="w-full gap-2">
+                  {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  {isAnalyzing ? 'Analizando...' : depth === 'deep' ? 'Analizar diferencias profundo' : 'Analizar diferencias breve'}
+                </Button>
+              </div>
             ) : (
               <div className="border rounded-lg p-4 space-y-3">
                 <p className="text-sm text-muted-foreground">
@@ -140,7 +169,7 @@ Sugiere versículos relacionados y explica similitudes, diferencias y énfasis t
             )}
           </TabsContent>
 
-          <TabsContent value="verses" className="flex-1 flex flex-col gap-4 mt-4">
+          <TabsContent value="verses" className="mt-4 flex min-h-0 flex-1 flex-col gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Versículo actual:</label>
               <div className="border rounded-lg p-3 bg-muted/50">
@@ -150,10 +179,30 @@ Sugiere versículos relacionados y explica similitudes, diferencias y énfasis t
             </div>
 
             {user ? (
-              <Button onClick={handleAnalyze} disabled={isAnalyzing} className="gap-2">
-                {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {isAnalyzing ? 'Analizando...' : 'Comparar versículos con IA'}
-              </Button>
+              <div className="shrink-0 space-y-3">
+                <div className="grid grid-cols-2 rounded-md border bg-muted/40 p-1">
+                  <Button
+                    type="button"
+                    variant={depth === 'brief' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setDepth('brief')}
+                  >
+                    Breve
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={depth === 'deep' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setDepth('deep')}
+                  >
+                    Profundo
+                  </Button>
+                </div>
+                <Button onClick={handleAnalyze} disabled={isAnalyzing} className="w-full gap-2">
+                  {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  {isAnalyzing ? 'Analizando...' : depth === 'deep' ? 'Comparar versículos profundo' : 'Comparar versículos breve'}
+                </Button>
+              </div>
             ) : (
               <div className="border rounded-lg p-4 space-y-3">
                 <p className="text-sm text-muted-foreground">
@@ -171,8 +220,8 @@ Sugiere versículos relacionados y explica similitudes, diferencias y énfasis t
           )}
 
           {analysis && (
-            <ScrollArea className="border rounded-lg p-4 bg-primary/5 max-h-56 mt-4">
-              <div className="space-y-3">
+            <ScrollArea className="mt-4 min-h-0 flex-1 overflow-hidden rounded-lg border bg-primary/5">
+              <div className="space-y-3 p-4">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
                   <span className="font-semibold text-primary">Análisis IA</span>

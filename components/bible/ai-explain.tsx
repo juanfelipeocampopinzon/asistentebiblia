@@ -21,6 +21,7 @@ interface AIExplainProps {
 export function AIExplain({ verse, book, bookName, chapter, translation }: AIExplainProps) {
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
+  const [depth, setDepth] = useState<'brief' | 'deep'>('brief')
   const [isLoading, setIsLoading] = useState(false)
   const [explanation, setExplanation] = useState<BibleAIResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -31,12 +32,15 @@ export function AIExplain({ verse, book, bookName, chapter, translation }: AIExp
     setError(null)
 
     try {
+      const depthInstruction = depth === 'deep'
+        ? 'Haz un análisis profundo de 300 a 450 palabras con secciones breves: contexto, significado, aplicación y conexiones bíblicas.'
+        : 'Haz un análisis breve de 90 a 130 palabras con contexto, significado y una aplicación práctica.'
       const result = await askBibleAI(
         `Analiza el versículo ${bookName} ${chapter}:${verse.number} (${translation.toUpperCase()}).
 
 Texto: "${verse.text}"
 
-Incluye contexto histórico, contexto literario, significado teológico y aplicación general.`
+${depthInstruction}`
       )
       setExplanation(result)
     } catch (err) {
@@ -53,7 +57,7 @@ Incluye contexto histórico, contexto literario, significado teológico y aplica
           <Lightbulb className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Lightbulb className="h-5 w-5 text-primary" />
@@ -64,7 +68,7 @@ Incluye contexto histórico, contexto literario, significado teológico y aplica
           </DialogDescription>
         </DialogHeader>
 
-        <div className="border rounded-lg p-4 bg-muted/50">
+        <div className="shrink-0 border rounded-lg p-4 bg-muted/50">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-sm font-semibold">{bookName} {chapter}:{verse.number}</span>
             <span className="text-xs text-muted-foreground">({translation.toUpperCase()})</span>
@@ -82,10 +86,30 @@ Incluye contexto histórico, contexto literario, significado teológico y aplica
         )}
 
         {user && !explanation && !isLoading && !error && (
-          <Button onClick={handleExplain} className="gap-2 mt-4">
-            <Sparkles className="h-4 w-4" />
-            Obtener explicación con IA
-          </Button>
+          <div className="mt-4 shrink-0 space-y-3">
+            <div className="grid grid-cols-2 rounded-md border bg-muted/40 p-1">
+              <Button
+                type="button"
+                variant={depth === 'brief' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setDepth('brief')}
+              >
+                Breve
+              </Button>
+              <Button
+                type="button"
+                variant={depth === 'deep' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setDepth('deep')}
+              >
+                Profundo
+              </Button>
+            </div>
+            <Button onClick={handleExplain} className="w-full gap-2">
+              <Sparkles className="h-4 w-4" />
+              {depth === 'deep' ? 'Obtener análisis profundo' : 'Obtener explicación breve'}
+            </Button>
+          </div>
         )}
 
         {isLoading && (
@@ -102,9 +126,9 @@ Incluye contexto histórico, contexto literario, significado teológico y aplica
         )}
 
         {explanation && (
-          <ScrollArea className="flex-1 mt-4">
+          <ScrollArea className="mt-4 min-h-0 flex-1 overflow-hidden rounded-lg border">
             <div className="space-y-4">
-              <div className="border rounded-lg p-4">
+              <div className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <BookOpen className="h-4 w-4 text-primary" />
                   <h3 className="font-semibold text-sm">Análisis</h3>
