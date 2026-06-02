@@ -1,0 +1,8 @@
+.next
+node_modules
+backend/node_modules
+backend/microservicio-471115-754b0a449188.json
+backend/*.log
+.env
+.env*
+npm-debug.log
