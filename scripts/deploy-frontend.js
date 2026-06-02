@@ -19,6 +19,7 @@ async function main() {
   const objectName = `${serviceName}-source.tar.gz`;
   const tarPath = path.join(os.tmpdir(), objectName);
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://biblia-backend-g3o3xjlp2a-uc.a.run.app';
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID || '';
 
   console.log(`Frontend consumirá backend: ${backendUrl}`);
   console.log('Empaquetando frontend...');
@@ -44,7 +45,12 @@ async function main() {
     token,
     objectName,
     image,
-    buildArgs: ['--build-arg', `NEXT_PUBLIC_BACKEND_URL=${backendUrl}`]
+    buildArgs: [
+      '--build-arg',
+      `NEXT_PUBLIC_BACKEND_URL=${backendUrl}`,
+      '--build-arg',
+      `NEXT_PUBLIC_GOOGLE_CLIENT_ID=${googleClientId}`
+    ]
   });
 
   console.log('Desplegando frontend en Cloud Run...');
@@ -53,7 +59,8 @@ async function main() {
     serviceName,
     image,
     env: {
-      NEXT_PUBLIC_BACKEND_URL: backendUrl
+      NEXT_PUBLIC_BACKEND_URL: backendUrl,
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: googleClientId
     }
   });
 
@@ -64,6 +71,7 @@ async function main() {
     serviceName,
     url,
     backendUrl,
+    googleClientIdConfigured: Boolean(googleClientId),
     image,
     buildId: build.id,
     logUrl: build.logUrl,

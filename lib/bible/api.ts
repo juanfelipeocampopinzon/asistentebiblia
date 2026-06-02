@@ -66,6 +66,29 @@ export async function searchBible(
   return (await fetchFromBackend<SearchResult[]>(`/api/bible/search?${params.toString()}`)) || []
 }
 
+export interface VerseComparison {
+  translation: string
+  abbreviation: string
+  name: string
+  language: string
+  text: string
+}
+
+export async function compareVerseTranslations(
+  bookId: string,
+  chapter: number,
+  verse: number,
+  translationIds: string[] = ['rvr', 'kjv']
+): Promise<VerseComparison[]> {
+  const params = new URLSearchParams({
+    translations: translationIds.join(',')
+  })
+
+  return (await fetchFromBackend<VerseComparison[]>(
+    `/api/bible/compare/${bookId}/${chapter}/${verse}?${params.toString()}`
+  )) || []
+}
+
 export async function getChapterNavigation(bookId: string, chapter: number) {
   const allBooks = await getBooks()
   const book = allBooks.find(b => b.id === bookId) || getBook(bookId)

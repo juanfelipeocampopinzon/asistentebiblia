@@ -13,6 +13,7 @@ backend/.env
 backend/microservicio-*.json
 *.log
 local-bible-*.png
+qa-*.png
 
 # Common ignores
 node_modules

@@ -9,6 +9,9 @@ import { GitCompare, Sparkles, Loader2, Tags } from 'lucide-react'
 import { Verse } from '@/lib/bible/types'
 import { translations } from '@/lib/bible/data/translations'
 import { askBibleAI, BibleAIResult } from '@/lib/bible/ai'
+import { compareVerseTranslations, VerseComparison } from '@/lib/bible/api'
+import { useAuth } from '@/lib/auth/google-auth'
+import { GoogleSession } from '@/components/auth/google-session'
 
 interface AICompareProps {
   verse: Verse
@@ -19,11 +22,13 @@ interface AICompareProps {
 }
 
 export function AICompare({ verse, book, bookName, chapter, translation }: AICompareProps) {
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('translations')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState<BibleAIResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [comparisons, setComparisons] = useState<VerseComparison[]>([])
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true)
@@ -33,9 +38,10 @@ export function AICompare({ verse, book, bookName, chapter, translation }: AICom
     const prompt = activeTab === 'translations'
       ? `Compara ${bookName} ${chapter}:${verse.number} en distintas traducciones bíblicas.
 
-Texto base (${translation.toUpperCase()}): "${verse.text}"
+Textos disponibles:
+${comparisons.map(item => `${item.abbreviation}: "${item.text}"`).join('\n') || `${translation.toUpperCase()}: "${verse.text}"`}
 
-Explica matices posibles entre Reina-Valera, KJV, NIV y ESV. Menciona diferencias de traducción formal/dinámica y el idioma original cuando sea relevante.`
+Explica matices entre Reina-Valera y KJV. Menciona diferencias de traducción formal/dinámica y el idioma original cuando sea relevante.`
       : `Compara ${bookName} ${chapter}:${verse.number} con pasajes paralelos o relacionados.
 
 Texto base (${translation.toUpperCase()}): "${verse.text}"
@@ -52,7 +58,23 @@ Sugiere versículos relacionados y explica similitudes, diferencias y énfasis t
   }
 
   return (
-    <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) { setAnalysis(null); setError(null) } }}>
+    <Dialog
+      open={open}
+      onOpenChange={async (value) => {
+        setOpen(value)
+        if (!value) {
+          setAnalysis(null)
+          setError(null)
+          return
+        }
+
+        try {
+          setComparisons(await compareVerseTranslations(book, chapter, verse.number, ['rvr', 'kjv']))
+        } catch {
+          setComparisons([])
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon-sm" title="Comparar con IA">
           <GitCompare className="h-4 w-4" />
@@ -80,25 +102,42 @@ Sugiere versículos relacionados y explica similitudes, diferencias y énfasis t
 
           <TabsContent value="translations" className="flex-1 flex flex-col gap-4 mt-4">
             <div className="grid gap-3">
-              {translations.slice(0, 4).map((item) => (
+              {translations.map((item) => {
+                const comparison = comparisons.find(result => result.translation === item.id)
+
+                return (
                 <div key={item.id} className="border rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs font-semibold bg-muted px-2 py-0.5 rounded">
                       {item.abbreviation}
                     </span>
                     <span className="text-xs text-muted-foreground">{item.name}</span>
+                    {item.available === false && (
+                      <span className="text-[10px] text-muted-foreground">pendiente</span>
+                    )}
                   </div>
                   <p className="text-sm">
-                    {item.id === translation ? verse.text : 'La IA analizará esta versión como comparación textual y traductológica.'}
+                    {comparison?.text || (item.available === false
+                      ? 'No cargada por licencia/fuente autorizada pendiente.'
+                      : 'Cargando texto de comparación...')}
                   </p>
                 </div>
-              ))}
+              )})}
             </div>
 
-            <Button onClick={handleAnalyze} disabled={isAnalyzing} className="gap-2">
-              {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {isAnalyzing ? 'Analizando...' : 'Analizar diferencias con IA'}
-            </Button>
+            {user ? (
+              <Button onClick={handleAnalyze} disabled={isAnalyzing} className="gap-2">
+                {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {isAnalyzing ? 'Analizando...' : 'Analizar diferencias con IA'}
+              </Button>
+            ) : (
+              <div className="border rounded-lg p-4 space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Inicia sesión con Google para usar el análisis de IA.
+                </p>
+                <GoogleSession />
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="verses" className="flex-1 flex flex-col gap-4 mt-4">
@@ -110,10 +149,19 @@ Sugiere versículos relacionados y explica similitudes, diferencias y énfasis t
               </div>
             </div>
 
-            <Button onClick={handleAnalyze} disabled={isAnalyzing} className="gap-2">
-              {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {isAnalyzing ? 'Analizando...' : 'Comparar versículos con IA'}
-            </Button>
+            {user ? (
+              <Button onClick={handleAnalyze} disabled={isAnalyzing} className="gap-2">
+                {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {isAnalyzing ? 'Analizando...' : 'Comparar versículos con IA'}
+              </Button>
+            ) : (
+              <div className="border rounded-lg p-4 space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Inicia sesión con Google para usar el análisis de IA.
+                </p>
+                <GoogleSession />
+              </div>
+            )}
           </TabsContent>
 
           {error && (

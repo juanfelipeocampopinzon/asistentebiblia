@@ -7,6 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Lightbulb, Sparkles, Loader2, Tags, BookOpen } from 'lucide-react'
 import { Verse } from '@/lib/bible/types'
 import { askBibleAI, BibleAIResult } from '@/lib/bible/ai'
+import { useAuth } from '@/lib/auth/google-auth'
+import { GoogleSession } from '@/components/auth/google-session'
 
 interface AIExplainProps {
   verse: Verse
@@ -17,6 +19,7 @@ interface AIExplainProps {
 }
 
 export function AIExplain({ verse, book, bookName, chapter, translation }: AIExplainProps) {
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [explanation, setExplanation] = useState<BibleAIResult | null>(null)
@@ -69,7 +72,16 @@ Incluye contexto histórico, contexto literario, significado teológico y aplica
           <p className="text-sm italic">&ldquo;{verse.text}&rdquo;</p>
         </div>
 
-        {!explanation && !isLoading && !error && (
+        {!user && !explanation && !isLoading && (
+          <div className="border rounded-lg p-4 mt-4 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Inicia sesión con Google para usar las funciones de IA.
+            </p>
+            <GoogleSession />
+          </div>
+        )}
+
+        {user && !explanation && !isLoading && !error && (
           <Button onClick={handleExplain} className="gap-2 mt-4">
             <Sparkles className="h-4 w-4" />
             Obtener explicación con IA

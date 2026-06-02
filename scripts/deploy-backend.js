@@ -43,7 +43,8 @@ async function main() {
       GOOGLE_CLOUD_PROJECT: PROJECT_ID,
       FIRESTORE_DATABASE_ID: '(default)',
       GOOGLE_CLOUD_LOCATION: 'global',
-      GEMINI_MODEL: 'gemini-2.5-pro'
+      GEMINI_MODEL: 'gemini-2.5-pro',
+      GOOGLE_OAUTH_CLIENT_ID: process.env.GOOGLE_OAUTH_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
     }
   });
 

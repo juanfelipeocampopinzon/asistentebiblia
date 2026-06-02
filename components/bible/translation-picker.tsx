@@ -24,8 +24,11 @@ export function TranslationPicker({ value, onChange }: TranslationPickerProps) {
         </SelectTrigger>
         <SelectContent>
           {translations.map((translation) => (
-            <SelectItem key={translation.id} value={translation.id}>
+            <SelectItem key={translation.id} value={translation.id} disabled={translation.available === false}>
               <span className="font-medium">{translation.abbreviation}</span>
+              {translation.available === false && (
+                <span className="ml-2 text-xs text-muted-foreground">próx.</span>
+              )}
             </SelectItem>
           ))}
         </SelectContent>

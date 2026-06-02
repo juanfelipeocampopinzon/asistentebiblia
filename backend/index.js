@@ -14,6 +14,55 @@ const project = process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || 'm
 const location = process.env.GOOGLE_CLOUD_LOCATION || 'global';
 const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
 const apiKey = process.env.GEMINI_API_KEY;
+const googleOAuthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+
+const supportedTranslations = [
+  {
+    id: 'rvr',
+    name: 'Reina-Valera',
+    abbreviation: 'RVR',
+    language: 'Español',
+    available: true,
+    order: 1,
+    sourceUrl: 'https://raw.githubusercontent.com/thiagobodruk/bible/master/json/es_rvr.json'
+  },
+  {
+    id: 'kjv',
+    name: 'King James Version',
+    abbreviation: 'KJV',
+    language: 'English',
+    available: true,
+    order: 2,
+    sourceUrl: 'https://raw.githubusercontent.com/thiagobodruk/bible/master/json/en_kjv.json'
+  },
+  {
+    id: 'niv',
+    name: 'New International Version',
+    abbreviation: 'NIV',
+    language: 'English',
+    available: false,
+    order: 3,
+    description: 'Pendiente por licencia/fuente autorizada'
+  },
+  {
+    id: 'esv',
+    name: 'English Standard Version',
+    abbreviation: 'ESV',
+    language: 'English',
+    available: false,
+    order: 4,
+    description: 'Pendiente por licencia/fuente autorizada'
+  },
+  {
+    id: 'nlt',
+    name: 'New Living Translation',
+    abbreviation: 'NLT',
+    language: 'English',
+    available: false,
+    order: 5,
+    description: 'Pendiente por licencia/fuente autorizada'
+  }
+];
 
 const ai = new GoogleGenAI(
   apiKey
@@ -47,72 +96,14 @@ Debes responder unicamente en JSON valido con esta estructura exacta:
 No incluyas texto fuera del JSON ni bloques de codigo Markdown.
 `.trim();
 
-let fallbackBiblePromise = null;
+const fallbackBiblePromises = new Map();
 
-async function getFallbackBible() {
-  if (!fallbackBiblePromise) {
-    fallbackBiblePromise = fetch('https://raw.githubusercontent.com/thiagobodruk/bible/master/json/es_rvr.json')
-      .then(response => {
-        if (!response.ok) throw new Error('No se pudo descargar la Biblia RVR de respaldo');
-        return response.json();
-      })
-      .then(sourceBooks => sourceBooks.map((sourceBook, index) => {
-        const meta = bibleBooks[index];
-        return {
-          id: meta.id,
-          name: meta.name || sourceBook.name,
-          abbrev: sourceBook.abbrev,
-          abbreviation: sourceBook.abbrev,
-          testament: meta.testament,
-          chapters: sourceBook.chapters,
-          chapterCount: sourceBook.chapters.length,
-          order: index + 1,
-          translation: 'rvr'
-        };
-      }));
-  }
-
-  return fallbackBiblePromise;
+function getTranslationConfig(translationId = 'rvr') {
+  return supportedTranslations.find(translation => translation.id === translationId && translation.available) || supportedTranslations[0];
 }
 
-async function getBooksFromFirestore() {
-  const booksSnapshot = await db.collection('books').orderBy('order').get();
-  return booksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-}
-
-async function getBibleBooks() {
-  try {
-    const firestoreBooks = await getBooksFromFirestore();
-    if (firestoreBooks.length > 0) return firestoreBooks;
-  } catch (error) {
-    console.warn('Firestore no disponible, usando Biblia RVR de respaldo:', error.message);
-  }
-
-  return getFallbackBible();
-}
-
-async function getBibleBook(bookId) {
-  try {
-    const bookDoc = await db.collection('books').doc(bookId).get();
-    if (bookDoc.exists) return { id: bookDoc.id, ...bookDoc.data() };
-  } catch (error) {
-    console.warn('Firestore no disponible para libro, usando respaldo:', error.message);
-  }
-
-  const fallbackBooks = await getFallbackBible();
-  return fallbackBooks.find(book => book.id === bookId) || null;
-}
-
-function toBookSummary(book) {
-  return {
-    id: book.id,
-    name: book.name,
-    abbreviation: book.abbreviation || book.abbrev,
-    abbrev: book.abbrev || book.abbreviation,
-    testament: book.testament,
-    chapters: book.chapterCount || getChapters(book.chapters).length || 0,
-    order: book.order
-  };
+function getExactTranslationConfig(translationId = 'rvr') {
+  return supportedTranslations.find(translation => translation.id === translationId);
 }
 
 function getChapters(chapters) {
@@ -124,7 +115,109 @@ function getChapters(chapters) {
     .map(([, chapter]) => chapter);
 }
 
-function normalizeChapter(bookId, bookData, chapterNumber, translation = 'rvr') {
+async function getFallbackBible(translationId = 'rvr') {
+  const translation = getTranslationConfig(translationId);
+
+  if (!fallbackBiblePromises.has(translation.id)) {
+    fallbackBiblePromises.set(
+      translation.id,
+      fetch(translation.sourceUrl)
+        .then(response => {
+          if (!response.ok) throw new Error(`No se pudo descargar ${translation.abbreviation}`);
+          return response.json();
+        })
+        .then(sourceBooks => sourceBooks.map((sourceBook, index) => {
+          const meta = bibleBooks[index];
+          return {
+            id: meta.id,
+            name: translation.id === 'rvr' ? (meta.name || sourceBook.name) : sourceBook.name,
+            spanishName: meta.name,
+            abbrev: sourceBook.abbrev,
+            abbreviation: sourceBook.abbrev,
+            testament: meta.testament,
+            chapters: sourceBook.chapters,
+            chapterCount: sourceBook.chapters.length,
+            order: index + 1,
+            translation: translation.id
+          };
+        }))
+    );
+  }
+
+  return fallbackBiblePromises.get(translation.id);
+}
+
+async function getBooksFromFirestore(translationId = 'rvr') {
+  const translation = getTranslationConfig(translationId);
+  const booksSnapshot = await db
+    .collection('translations')
+    .doc(translation.id)
+    .collection('books')
+    .orderBy('order')
+    .get();
+
+  if (!booksSnapshot.empty) {
+    return booksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  }
+
+  if (translation.id === 'rvr') {
+    const legacySnapshot = await db.collection('books').orderBy('order').get();
+    return legacySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  }
+
+  return [];
+}
+
+async function getBibleBooks(translationId = 'rvr') {
+  try {
+    const firestoreBooks = await getBooksFromFirestore(translationId);
+    if (firestoreBooks.length > 0) return firestoreBooks;
+  } catch (error) {
+    console.warn('Firestore no disponible, usando respaldo:', error.message);
+  }
+
+  return getFallbackBible(translationId);
+}
+
+async function getBibleBook(bookId, translationId = 'rvr') {
+  const translation = getTranslationConfig(translationId);
+
+  try {
+    const bookDoc = await db
+      .collection('translations')
+      .doc(translation.id)
+      .collection('books')
+      .doc(bookId)
+      .get();
+
+    if (bookDoc.exists) return { id: bookDoc.id, ...bookDoc.data() };
+
+    if (translation.id === 'rvr') {
+      const legacyDoc = await db.collection('books').doc(bookId).get();
+      if (legacyDoc.exists) return { id: legacyDoc.id, ...legacyDoc.data() };
+    }
+  } catch (error) {
+    console.warn('Firestore no disponible para libro, usando respaldo:', error.message);
+  }
+
+  const fallbackBooks = await getFallbackBible(translation.id);
+  return fallbackBooks.find(book => book.id === bookId) || null;
+}
+
+function toBookSummary(book) {
+  return {
+    id: book.id,
+    name: book.name,
+    spanishName: book.spanishName,
+    abbreviation: book.abbreviation || book.abbrev,
+    abbrev: book.abbrev || book.abbreviation,
+    testament: book.testament,
+    chapters: book.chapterCount || getChapters(book.chapters).length || 0,
+    order: book.order
+  };
+}
+
+function normalizeChapter(bookId, bookData, chapterNumber, translationId = 'rvr') {
   const chapter = getChapters(bookData.chapters)[chapterNumber - 1];
   if (!chapter) return null;
 
@@ -132,7 +225,7 @@ function normalizeChapter(bookId, bookData, chapterNumber, translation = 'rvr') 
     book: bookId,
     bookName: bookData.name,
     chapter: chapterNumber,
-    translation: 'rvr',
+    translation: bookData.translation || translationId,
     verses: chapter.map((text, index) => ({
       number: index + 1,
       text
@@ -154,25 +247,62 @@ function cleanJsonText(text) {
     .trim();
 }
 
+async function verifyGoogleToken(idToken) {
+  const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+  if (!response.ok) throw new Error('Token de Google invalido');
+
+  const profile = await response.json();
+  if (googleOAuthClientId && profile.aud !== googleOAuthClientId) {
+    throw new Error('Token emitido para otro cliente OAuth');
+  }
+
+  return {
+    uid: profile.sub,
+    email: profile.email,
+    name: profile.name || profile.email,
+    picture: profile.picture
+  };
+}
+
+async function requireGoogleUser(req, res, next) {
+  try {
+    const header = req.headers.authorization || '';
+    const token = header.startsWith('Bearer ') ? header.slice('Bearer '.length) : '';
+    if (!token) return res.status(401).json({ error: 'Inicia sesion con Google para usar la IA.' });
+
+    req.user = await verifyGoogleToken(token);
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Sesion de Google invalida o expirada.', details: error.message });
+  }
+}
+
+async function saveAiHistory(user, payload) {
+  const userRef = db.collection('users').doc(user.uid);
+  await userRef.set({
+    email: user.email,
+    name: user.name,
+    picture: user.picture,
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
+
+  await userRef.collection('aiHistory').add({
+    ...payload,
+    createdAt: new Date().toISOString()
+  });
+}
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', model: modelName, project, location });
 });
 
 app.get('/api/bible/translations', (req, res) => {
-  res.json([
-    {
-      id: 'rvr',
-      name: 'Reina-Valera',
-      abbreviation: 'RVR',
-      language: 'Espanol',
-      description: 'Texto biblico en espanol'
-    }
-  ]);
+  res.json(supportedTranslations.map(({ sourceUrl, ...translation }) => translation));
 });
 
 app.get('/api/bible/books', async (req, res) => {
   try {
-    const books = await getBibleBooks();
+    const books = await getBibleBooks(req.query.translation || 'rvr');
     res.json(books.map(toBookSummary));
   } catch (error) {
     console.error('Error obteniendo libros:', error);
@@ -182,7 +312,7 @@ app.get('/api/bible/books', async (req, res) => {
 
 app.get('/api/bible/books/:bookId', async (req, res) => {
   try {
-    const book = await getBibleBook(req.params.bookId);
+    const book = await getBibleBook(req.params.bookId, req.query.translation || 'rvr');
     if (!book) return res.status(404).json({ error: 'Libro no encontrado' });
     res.json(book);
   } catch (error) {
@@ -198,16 +328,11 @@ app.get('/api/bible/books/:bookId/chapters/:chapter', async (req, res) => {
       return res.status(400).json({ error: 'Capitulo invalido' });
     }
 
-    const book = await getBibleBook(req.params.bookId);
+    const translation = getTranslationConfig(req.query.translation || 'rvr');
+    const book = await getBibleBook(req.params.bookId, translation.id);
     if (!book) return res.status(404).json({ error: 'Libro no encontrado' });
 
-    const chapter = normalizeChapter(
-      book.id,
-      book,
-      chapterNumber,
-      req.query.translation || 'rvr'
-    );
-
+    const chapter = normalizeChapter(book.id, book, chapterNumber, translation.id);
     if (!chapter) return res.status(404).json({ error: 'Capitulo no encontrado' });
     res.json(chapter);
   } catch (error) {
@@ -216,15 +341,52 @@ app.get('/api/bible/books/:bookId/chapters/:chapter', async (req, res) => {
   }
 });
 
+app.get('/api/bible/compare/:bookId/:chapter/:verse', async (req, res) => {
+  try {
+    const chapterNumber = Number(req.params.chapter);
+    const verseNumber = Number(req.params.verse);
+    const requested = String(req.query.translations || 'rvr,kjv')
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean);
+
+    const comparisons = [];
+
+    for (const translationId of requested) {
+      const translation = getExactTranslationConfig(translationId);
+      if (!translation?.available) continue;
+
+      const book = await getBibleBook(req.params.bookId, translation.id);
+      const chapter = book ? normalizeChapter(book.id, book, chapterNumber, translation.id) : null;
+      const verse = chapter?.verses.find(item => item.number === verseNumber);
+
+      if (verse) {
+        comparisons.push({
+          translation: translation.id,
+          abbreviation: translation.abbreviation,
+          name: translation.name,
+          language: translation.language,
+          text: verse.text
+        });
+      }
+    }
+
+    res.json(comparisons);
+  } catch (error) {
+    console.error('Error comparando versiculo:', error);
+    res.status(500).json({ error: 'Error comparando versiculo', details: error.message });
+  }
+});
+
 app.get('/api/bible/search', async (req, res) => {
   try {
     const query = String(req.query.q || '').trim().toLowerCase();
     const limit = Math.min(Number(req.query.limit) || 20, 50);
-    const translation = 'rvr';
+    const translation = getTranslationConfig(req.query.translation || 'rvr');
 
     if (!query) return res.json([]);
 
-    const books = await getBibleBooks();
+    const books = await getBibleBooks(translation.id);
     const results = [];
 
     for (const book of books) {
@@ -243,7 +405,7 @@ app.get('/api/bible/search', async (req, res) => {
               chapter: chapterIndex + 1,
               verse: verseIndex + 1,
               text,
-              translation
+              translation: translation.id
             });
           }
 
@@ -259,7 +421,23 @@ app.get('/api/bible/search', async (req, res) => {
   }
 });
 
-app.post('/api/chat', async (req, res) => {
+app.get('/api/me/history', requireGoogleUser, async (req, res) => {
+  try {
+    const snapshot = await db
+      .collection('users')
+      .doc(req.user.uid)
+      .collection('aiHistory')
+      .orderBy('createdAt', 'desc')
+      .limit(30)
+      .get();
+
+    res.json(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  } catch (error) {
+    res.status(500).json({ error: 'No se pudo cargar el historial', details: error.message });
+  }
+});
+
+app.post('/api/chat', requireGoogleUser, async (req, res) => {
   try {
     const { messages } = req.body;
 
@@ -296,12 +474,21 @@ app.post('/api/chat', async (req, res) => {
       return res.status(500).json({ error: 'La IA devolvio un formato JSON invalido.', raw: textResponse });
     }
 
-    res.json({
+    const responsePayload = {
       success: true,
       response: aiData.response,
       topic_tags: aiData.topic_tags || [],
       related_verses: aiData.related_verses || []
+    };
+
+    await saveAiHistory(req.user, {
+      messages,
+      response: responsePayload.response,
+      topic_tags: responsePayload.topic_tags,
+      related_verses: responsePayload.related_verses
     });
+
+    res.json(responsePayload);
   } catch (error) {
     console.error('Error al comunicarse con Gemini/Vertex AI:', error);
     res.status(500).json({

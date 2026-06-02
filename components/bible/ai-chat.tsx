@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { MessageCircle, Send, Bot, User, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { askBibleAI } from '@/lib/bible/ai'
+import { useAuth } from '@/lib/auth/google-auth'
 
 interface Message {
   id: string
@@ -24,6 +25,7 @@ interface AIChatProps {
 }
 
 export function AIChat({ currentContext }: AIChatProps) {
+  const { user, isConfigured, login } = useAuth()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -175,6 +177,21 @@ export function AIChat({ currentContext }: AIChatProps) {
         </div>
 
         <div className="p-4 border-t shrink-0">
+          {!user && (
+            <div className="mb-3 rounded-md border bg-muted/40 p-3 text-center text-sm">
+              <p className="text-muted-foreground">Inicia sesión con Google para usar la IA.</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                disabled={!isConfigured}
+                onClick={login}
+              >
+                Entrar con Google
+              </Button>
+            </div>
+          )}
           <form
             onSubmit={(event) => {
               event.preventDefault()
@@ -186,10 +203,10 @@ export function AIChat({ currentContext }: AIChatProps) {
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder="Pregunta sobre la Biblia..."
-              disabled={isLoading}
+              disabled={isLoading || !user}
               className="flex-1"
             />
-            <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
+            <Button type="submit" size="icon" disabled={isLoading || !input.trim() || !user}>
               <Send className="h-4 w-4" />
             </Button>
           </form>

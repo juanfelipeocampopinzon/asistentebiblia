@@ -33,11 +33,6 @@ export default function ReadPage({ params }: PageProps) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (translation !== 'rvr') {
-      router.replace(`/read/rvr/${book}/${chapterNum}`)
-      return
-    }
-
     const loadData = async () => {
       setLoading(true)
       

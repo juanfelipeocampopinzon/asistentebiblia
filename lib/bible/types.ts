@@ -6,6 +6,7 @@ export interface Translation {
   abbreviation: string
   language: string
   description?: string
+  available?: boolean
 }
 
 export interface Book {

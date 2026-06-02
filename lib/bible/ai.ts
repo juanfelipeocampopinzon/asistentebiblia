@@ -1,3 +1,5 @@
+import { getGoogleIdToken } from '@/lib/auth/google-auth'
+
 export interface BibleAIResult {
   success: boolean
   response: string
@@ -12,10 +14,16 @@ export async function askBibleAI(prompt: string): Promise<BibleAIResult> {
     throw new Error('NEXT_PUBLIC_BACKEND_URL no está configurado.')
   }
 
+  const token = getGoogleIdToken()
+  if (!token) {
+    throw new Error('Inicia sesión con Google para usar las funciones de IA.')
+  }
+
   const response = await fetch(`${backendUrl}/api/chat`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
     },
     body: JSON.stringify({
       messages: [

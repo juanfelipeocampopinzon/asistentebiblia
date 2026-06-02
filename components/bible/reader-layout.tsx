@@ -13,6 +13,7 @@ import { SearchDialog } from './search-dialog'
 import { AIChat } from './ai-chat'
 import { BookOpen, Search, Bookmark, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { GoogleSession } from '@/components/auth/google-session'
 
 interface ReaderLayoutProps {
   children: React.ReactNode
@@ -100,6 +101,7 @@ export function ReaderLayout({
               value={translation}
               onChange={handleTranslationChange}
             />
+            <GoogleSession />
             <AIChat currentContext={{ book: bookName, chapter }} />
             <Button
               variant="ghost"
