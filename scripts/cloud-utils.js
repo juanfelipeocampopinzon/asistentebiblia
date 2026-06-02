@@ -168,13 +168,19 @@ async function runCloudBuild({ token, objectName, image, buildArgs = [] }) {
   }
 
   const created = JSON.parse(createResponse.body);
-  console.log(`Cloud Build creado: ${created.id}`);
+  const buildId = created.id || created.metadata?.build?.id;
+
+  if (!buildId) {
+    throw new Error(`Cloud Build no devolvio id: ${createResponse.body}`);
+  }
+
+  console.log(`Cloud Build creado: ${buildId}`);
 
   for (let index = 0; index < 120; index++) {
     await new Promise((resolve) => setTimeout(resolve, 5000));
     const statusResponse = await request({
       host: 'cloudbuild.googleapis.com',
-      path: `/v1/projects/${PROJECT_ID}/builds/${created.id}`,
+      path: `/v1/projects/${PROJECT_ID}/builds/${buildId}`,
       token
     });
     const buildStatus = JSON.parse(statusResponse.body);
@@ -186,7 +192,7 @@ async function runCloudBuild({ token, objectName, image, buildArgs = [] }) {
       }
 
       return {
-        id: created.id,
+        id: buildId,
         image,
         logUrl: buildStatus.logUrl
       };
@@ -254,6 +260,10 @@ async function deployCloudRun({ token, serviceName, image, env }) {
   } else {
     const existingBody = JSON.parse(existing.body);
     body.metadata.resourceVersion = existingBody.metadata.resourceVersion;
+    body.metadata.annotations = {
+      ...(existingBody.metadata?.annotations || {}),
+      ...(body.metadata.annotations || {})
+    };
     response = await request({
       host,
       path: servicePath,
