@@ -2,13 +2,14 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { GitCompare, Sparkles, Loader2, Tags } from 'lucide-react'
+import { GitCompare, Sparkles, Loader2, Tags, Plus, X } from 'lucide-react'
 import { Verse } from '@/lib/bible/types'
 import { translations } from '@/lib/bible/data/translations'
 import { askBibleAI, BibleAIResult } from '@/lib/bible/ai'
-import { compareVerseTranslations, VerseComparison } from '@/lib/bible/api'
+import { compareVerseTranslations, getVerseByReference, ResolvedVerseReference, VerseComparison } from '@/lib/bible/api'
 import { useAuth } from '@/lib/auth/google-auth'
 import { GoogleSession } from '@/components/auth/google-session'
 
@@ -29,6 +30,78 @@ export function AICompare({ verse, book, bookName, chapter, translation }: AICom
   const [analysis, setAnalysis] = useState<BibleAIResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [comparisons, setComparisons] = useState<VerseComparison[]>([])
+  const [referenceInput, setReferenceInput] = useState('')
+  const [referenceError, setReferenceError] = useState<string | null>(null)
+  const [isAddingReference, setIsAddingReference] = useState(false)
+  const [customVerses, setCustomVerses] = useState<ResolvedVerseReference[]>([])
+
+  const currentVerseReference = `${bookName} ${chapter}:${verse.number}`
+  const currentVerseContext: ResolvedVerseReference = {
+    book,
+    bookName,
+    chapter,
+    verse: verse.number,
+    text: verse.text,
+    translation,
+    reference: currentVerseReference
+  }
+
+  const verseKey = (item: Pick<ResolvedVerseReference, 'book' | 'chapter' | 'verse' | 'translation'>) =>
+    `${item.translation}:${item.book}:${item.chapter}:${item.verse}`
+
+  const addVerseToContext = (item: ResolvedVerseReference) => {
+    setCustomVerses(prev => {
+      if (prev.some(existing => verseKey(existing) === verseKey(item))) return prev
+      return [...prev, item].slice(0, 10)
+    })
+    setAnalysis(null)
+    setError(null)
+  }
+
+  const handleAddCurrentVerse = () => {
+    addVerseToContext(currentVerseContext)
+  }
+
+  const handleAddReference = async () => {
+    if (!referenceInput.trim()) return
+
+    setIsAddingReference(true)
+    setReferenceError(null)
+    try {
+      const references = referenceInput
+        .split(/[,;]+/)
+        .map(item => item.trim())
+        .filter(Boolean)
+
+      const resolvedVerses: ResolvedVerseReference[] = []
+      const failedReferences: string[] = []
+
+      for (const reference of references) {
+        const resolved = await getVerseByReference(reference, translation)
+        if (resolved) {
+          resolvedVerses.push(resolved)
+        } else {
+          failedReferences.push(reference)
+        }
+      }
+
+      resolvedVerses.forEach(addVerseToContext)
+      if (failedReferences.length > 0) {
+        setReferenceError(`No encontre: ${failedReferences.join(', ')}.`)
+      }
+      if (resolvedVerses.length > 0) setReferenceInput('')
+    } catch {
+      setReferenceError('No pude cargar esos versiculos desde el backend.')
+    } finally {
+      setIsAddingReference(false)
+    }
+  }
+
+  const removeVerseFromContext = (item: ResolvedVerseReference) => {
+    setCustomVerses(prev => prev.filter(existing => verseKey(existing) !== verseKey(item)))
+    setAnalysis(null)
+    setError(null)
+  }
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true)
@@ -39,6 +112,7 @@ export function AICompare({ verse, book, bookName, chapter, translation }: AICom
       ? 'Responde con un análisis profundo de 300 a 450 palabras, usando secciones cortas y claras.'
       : 'Responde con un análisis breve de 90 a 130 palabras, claro y directo.'
 
+    const versesForPrompt = customVerses.length > 0 ? customVerses : [currentVerseContext]
     const prompt = activeTab === 'translations'
       ? `Compara ${bookName} ${chapter}:${verse.number} en distintas traducciones bíblicas.
 
@@ -47,11 +121,13 @@ ${comparisons.map(item => `${item.abbreviation}: "${item.text}"`).join('\n') || 
 
 Explica matices entre Reina-Valera y KJV. Menciona diferencias de traducción formal/dinámica y el idioma original cuando sea relevante.
 ${depthInstruction}`
-      : `Compara ${bookName} ${chapter}:${verse.number} con pasajes paralelos o relacionados.
+      : `Analiza y compara estos versiculos seleccionados por el usuario.
 
-Texto base (${translation.toUpperCase()}): "${verse.text}"
+Traduccion base: ${translation.toUpperCase()}
+Versiculos:
+${versesForPrompt.map(item => `- ${item.reference} (${item.translation.toUpperCase()}): "${item.text}"`).join('\n')}
 
-Sugiere versículos relacionados y explica similitudes, diferencias y énfasis teológico.
+Explica conexiones, similitudes, diferencias, contexto y enfasis teologico. Si hay versiculos de distintos libros, muestra como se relacionan sin forzar una conexion que no exista.
 ${depthInstruction}`
 
     try {
@@ -71,6 +147,7 @@ ${depthInstruction}`
         if (!value) {
           setAnalysis(null)
           setError(null)
+          setReferenceError(null)
           return
         }
 
@@ -170,10 +247,71 @@ ${depthInstruction}`
 
           <TabsContent value="verses" className="mt-4 flex flex-col gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Versículo actual:</label>
-              <div className="border rounded-lg p-3 bg-muted/50">
-                <span className="text-xs font-semibold">{bookName} {chapter}:{verse.number}</span>
-                <p className="text-sm mt-1">{verse.text}</p>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Versiculos para analizar</label>
+                <Button type="button" variant="outline" size="sm" onClick={handleAddCurrentVerse} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Actual
+                </Button>
+              </div>
+
+              <div className="flex gap-2">
+                <Input
+                  value={referenceInput}
+                  onChange={(event) => {
+                    setReferenceInput(event.target.value)
+                    setReferenceError(null)
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      handleAddReference()
+                    }
+                  }}
+                  placeholder="Juan 1:1"
+                  disabled={isAddingReference}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  onClick={handleAddReference}
+                  disabled={isAddingReference || !referenceInput.trim()}
+                >
+                  {isAddingReference ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                </Button>
+              </div>
+              {referenceError && <p className="text-xs text-destructive">{referenceError}</p>}
+
+              <div className="max-h-64 overflow-y-auto rounded-lg border p-3">
+                <div className="grid gap-3">
+                  {(customVerses.length > 0 ? customVerses : [currentVerseContext]).map((item) => {
+                    const isImplicitCurrent = customVerses.length === 0
+
+                    return (
+                      <div key={verseKey(item)} className="rounded-lg border bg-muted/40 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="text-xs font-semibold">{item.reference}</span>
+                            <span className="ml-2 text-xs text-muted-foreground">({item.translation.toUpperCase()})</span>
+                          </div>
+                          {!isImplicitCurrent && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => removeVerseFromContext(item)}
+                              title="Quitar versiculo"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                        <p className="mt-1 text-sm">{item.text}</p>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             </div>
 

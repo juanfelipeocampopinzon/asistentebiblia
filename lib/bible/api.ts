@@ -1,6 +1,7 @@
 import { Chapter, SearchResult, Book, Translation } from './types'
 import { books, getBook, getNextBook, getPreviousBook } from './data/books'
 import { translations } from './data/translations'
+import { spanishBookNames } from './book-names'
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/$/, '') || ''
 
@@ -87,6 +88,112 @@ export async function compareVerseTranslations(
   return (await fetchFromBackend<VerseComparison[]>(
     `/api/bible/compare/${bookId}/${chapter}/${verse}?${params.toString()}`
   )) || []
+}
+
+export interface ResolvedVerseReference {
+  book: string
+  bookName: string
+  chapter: number
+  verse: number
+  text: string
+  translation: string
+  reference: string
+}
+
+function normalizeReferenceText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\./g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function getBookAliases() {
+  const aliases = new Map<string, string>()
+
+  books.forEach((book) => {
+    aliases.set(normalizeReferenceText(book.id.replace(/-/g, ' ')), book.id)
+    aliases.set(normalizeReferenceText(book.name), book.id)
+    aliases.set(normalizeReferenceText(book.abbreviation), book.id)
+
+    const spanishName = spanishBookNames[book.id]
+    if (spanishName) {
+      aliases.set(normalizeReferenceText(spanishName), book.id)
+    }
+  })
+
+  Object.entries({
+    gen: 'genesis',
+    gn: 'genesis',
+    ex: 'exodus',
+    exo: 'exodus',
+    num: 'numbers',
+    dt: 'deuteronomy',
+    salmo: 'psalms',
+    salmos: 'psalms',
+    sal: 'psalms',
+    pr: 'proverbs',
+    prov: 'proverbs',
+    is: 'isaiah',
+    jer: 'jeremiah',
+    mt: 'matthew',
+    mateo: 'matthew',
+    mc: 'mark',
+    marcos: 'mark',
+    lc: 'luke',
+    lucas: 'luke',
+    jn: 'john',
+    juan: 'john',
+    hch: 'acts',
+    hechos: 'acts',
+    ro: 'romans',
+    rom: 'romans',
+    col: 'colossians',
+    heb: 'hebrews',
+    ap: 'revelation',
+    apocalipsis: 'revelation'
+  }).forEach(([alias, bookId]) => aliases.set(normalizeReferenceText(alias), bookId))
+
+  return aliases
+}
+
+export function parseVerseReference(reference: string): { book: string; chapter: number; verse: number } | null {
+  const match = reference.trim().match(/^(.+?)\s+(\d{1,3})\s*:\s*(\d{1,3})$/)
+  if (!match) return null
+
+  const [, bookText, chapterText, verseText] = match
+  const book = getBookAliases().get(normalizeReferenceText(bookText))
+  if (!book) return null
+
+  return {
+    book,
+    chapter: Number(chapterText),
+    verse: Number(verseText)
+  }
+}
+
+export async function getVerseByReference(
+  reference: string,
+  translationId: string = 'rvr'
+): Promise<ResolvedVerseReference | null> {
+  const parsed = parseVerseReference(reference)
+  if (!parsed) return null
+
+  const chapter = await getChapter(parsed.book, parsed.chapter, translationId)
+  const verse = chapter?.verses.find(item => item.number === parsed.verse)
+  if (!chapter || !verse) return null
+
+  return {
+    book: chapter.book,
+    bookName: chapter.bookName,
+    chapter: chapter.chapter,
+    verse: verse.number,
+    text: verse.text,
+    translation: chapter.translation,
+    reference: `${chapter.bookName} ${chapter.chapter}:${verse.number}`
+  }
 }
 
 export async function getChapterNavigation(bookId: string, chapter: number) {
