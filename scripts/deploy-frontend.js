@@ -20,6 +20,9 @@ async function main() {
   const tarPath = path.join(os.tmpdir(), objectName);
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://biblia-backend-g3o3xjlp2a-uc.a.run.app';
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID || '';
+  const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT || '';
+  const adsenseHomeSlot = process.env.NEXT_PUBLIC_ADSENSE_HOME_SLOT || '';
+  const adsenseReaderSlot = process.env.NEXT_PUBLIC_ADSENSE_READER_SLOT || '';
 
   console.log(`Frontend consumirá backend: ${backendUrl}`);
   console.log('Empaquetando frontend...');
@@ -50,7 +53,13 @@ async function main() {
       '--build-arg',
       `NEXT_PUBLIC_BACKEND_URL=${backendUrl}`,
       '--build-arg',
-      `NEXT_PUBLIC_GOOGLE_CLIENT_ID=${googleClientId}`
+      `NEXT_PUBLIC_GOOGLE_CLIENT_ID=${googleClientId}`,
+      '--build-arg',
+      `NEXT_PUBLIC_ADSENSE_CLIENT=${adsenseClient}`,
+      '--build-arg',
+      `NEXT_PUBLIC_ADSENSE_HOME_SLOT=${adsenseHomeSlot}`,
+      '--build-arg',
+      `NEXT_PUBLIC_ADSENSE_READER_SLOT=${adsenseReaderSlot}`
     ]
   });
 
@@ -61,7 +70,10 @@ async function main() {
     image,
     env: {
       NEXT_PUBLIC_BACKEND_URL: backendUrl,
-      NEXT_PUBLIC_GOOGLE_CLIENT_ID: googleClientId
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: googleClientId,
+      NEXT_PUBLIC_ADSENSE_CLIENT: adsenseClient,
+      NEXT_PUBLIC_ADSENSE_HOME_SLOT: adsenseHomeSlot,
+      NEXT_PUBLIC_ADSENSE_READER_SLOT: adsenseReaderSlot
     }
   });
 
@@ -73,6 +85,7 @@ async function main() {
     url,
     backendUrl,
     googleClientIdConfigured: Boolean(googleClientId),
+    adsenseConfigured: Boolean(adsenseClient && adsenseHomeSlot && adsenseReaderSlot),
     image,
     buildId: build.id,
     logUrl: build.logUrl,

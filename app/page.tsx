@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { BookOpen, ArrowRight, Sparkles, Bookmark, Search } from 'lucide-react'
 import { GoogleSession } from '@/components/auth/google-session'
+import { AdUnit } from '@/components/ads/ad-unit'
 
 const popularChapters = [
   { book: 'genesis', chapter: 1, label: 'Génesis 1', description: 'La creación' },
@@ -137,12 +138,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="mx-auto mt-12 w-full max-w-3xl rounded-lg border border-dashed bg-muted/30 p-5 text-center">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Espacio patrocinado</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Anuncios respetuosos relacionados con lectura, estudio y recursos bíblicos. Sin interrupciones ni contenido invasivo.
-          </p>
-        </section>
+        <AdUnit placement="home" className="mt-12 max-w-3xl" />
       </main>
     </div>
   )

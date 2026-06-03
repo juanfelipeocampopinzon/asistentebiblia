@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/auth/google-auth'
@@ -13,6 +14,8 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
   variable: '--font-geist-mono'
 })
+
+const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT || ''
 
 export const metadata: Metadata = {
   title: 'Biblia IA',
@@ -43,6 +46,14 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning className="bg-background">
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>
+        {adsenseClient && (
+          <Script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`}
+            crossOrigin="anonymous"
+            strategy="afterInteractive"
+          />
+        )}
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

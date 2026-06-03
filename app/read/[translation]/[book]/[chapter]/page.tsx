@@ -9,6 +9,7 @@ import { ReaderLayout } from '@/components/bible/reader-layout'
 import { BibleReader } from '@/components/bible/bible-reader'
 import { ChapterNav } from '@/components/bible/chapter-nav'
 import { Skeleton } from '@/components/ui/skeleton'
+import { AdUnit } from '@/components/ads/ad-unit'
 
 interface PageProps {
   params: Promise<{
@@ -143,6 +144,8 @@ export default function ReadPage({ params }: PageProps) {
           hasNext={!!navigation.nextChapter}
         />
       )}
+
+      <AdUnit placement="reader" className="mt-8 max-w-3xl" />
     </ReaderLayout>
   )
 }
