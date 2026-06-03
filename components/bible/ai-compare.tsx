@@ -55,7 +55,7 @@ Sugiere versículos relacionados y explica similitudes, diferencias y énfasis t
 ${depthInstruction}`
 
     try {
-      setAnalysis(await askBibleAI(prompt))
+      setAnalysis(await askBibleAI(prompt, { task: 'compare', depth }))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo obtener el análisis.')
     } finally {

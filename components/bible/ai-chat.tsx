@@ -69,7 +69,8 @@ export function AIChat({ currentContext }: AIChatProps) {
         ? `Contexto de lectura: ${currentContext.book} ${currentContext.chapter}${currentContext.verse ? `:${currentContext.verse}` : ''}.\n`
         : ''
       const aiResult = await askBibleAI(
-        `${contextText}Responde en espanol, maximo 60 palabras, directo y facil de leer.\nPregunta: ${question}`
+        `${contextText}Responde en espanol, maximo 60 palabras, directo y facil de leer.\nPregunta: ${question}`,
+        { task: 'chat', depth: 'brief' }
       )
 
       setMessages(prev => [

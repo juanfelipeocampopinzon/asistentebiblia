@@ -40,7 +40,8 @@ export function AIExplain({ verse, book, bookName, chapter, translation }: AIExp
 
 Texto: "${verse.text}"
 
-${depthInstruction}`
+${depthInstruction}`,
+        { task: 'explain', depth }
       )
       setExplanation(result)
     } catch (err) {

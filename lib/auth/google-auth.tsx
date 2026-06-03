@@ -3,6 +3,12 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 const TOKEN_KEY = 'biblia_google_id_token'
+const DEV_TOKEN = 'local-dev-token'
+const DEV_USER: GoogleProfile = {
+  sub: 'local-dev-user',
+  email: 'local-dev@example.com',
+  name: 'Local Dev'
+}
 
 interface GoogleProfile {
   sub: string
@@ -64,20 +70,30 @@ function decodeJwt(token: string): GoogleProfile | null {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
+  const authBypass = process.env.NEXT_PUBLIC_AI_AUTH_BYPASS === 'true'
   const [token, setToken] = useState<string | null>(null)
   const [user, setUser] = useState<GoogleProfile | null>(null)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
+    if (authBypass) {
+      window.localStorage.setItem(TOKEN_KEY, DEV_TOKEN)
+      setToken(DEV_TOKEN)
+      setUser(DEV_USER)
+      setReady(true)
+      return
+    }
+
     const storedToken = window.localStorage.getItem(TOKEN_KEY)
     const storedUser = storedToken ? decodeJwt(storedToken) : null
     if (storedToken && storedUser) {
       setToken(storedToken)
       setUser(storedUser)
     }
-  }, [])
+  }, [authBypass])
 
   useEffect(() => {
+    if (authBypass) return
     if (!clientId) return
 
     const script = document.createElement('script')
@@ -103,22 +119,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       script.remove()
     }
-  }, [clientId])
+  }, [authBypass, clientId])
 
   const value = useMemo<AuthContextValue>(() => ({
     user,
     token,
-    isConfigured: Boolean(clientId) && ready,
+    isConfigured: authBypass || (Boolean(clientId) && ready),
     login: () => {
+      if (authBypass) {
+        window.localStorage.setItem(TOKEN_KEY, DEV_TOKEN)
+        setToken(DEV_TOKEN)
+        setUser(DEV_USER)
+        return
+      }
       window.google?.accounts.id.prompt()
     },
     logout: () => {
+      if (authBypass) {
+        window.localStorage.removeItem(TOKEN_KEY)
+        setToken(null)
+        setUser(null)
+        return
+      }
       window.google?.accounts.id.disableAutoSelect()
       window.localStorage.removeItem(TOKEN_KEY)
       setToken(null)
       setUser(null)
     },
     renderButton: (container: HTMLElement) => {
+      if (authBypass) return
       if (!ready) return
       container.innerHTML = ''
       window.google?.accounts.id.renderButton(container, {
@@ -130,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         locale: 'es'
       })
     }
-  }), [clientId, ready, token, user])
+  }), [authBypass, clientId, ready, token, user])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
@@ -143,5 +172,7 @@ export function useAuth() {
 
 export function getGoogleIdToken() {
   if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(TOKEN_KEY)
+  return window.localStorage.getItem(TOKEN_KEY) || (
+    process.env.NEXT_PUBLIC_AI_AUTH_BYPASS === 'true' ? DEV_TOKEN : null
+  )
 }

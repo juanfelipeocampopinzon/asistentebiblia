@@ -13,6 +13,25 @@ app.use(express.json({ limit: '1mb' }));
 const project = process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || 'microservicio-471115';
 const location = process.env.GOOGLE_CLOUD_LOCATION || 'global';
 const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
+const modelProfiles = {
+  chat: {
+    primary: process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash-lite',
+    fallback: process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash-lite',
+    maxOutputTokens: Number(process.env.GEMINI_CHAT_MAX_OUTPUT_TOKENS || 512)
+  },
+  brief: {
+    primary: process.env.GEMINI_BRIEF_MODEL || 'gemini-2.5-flash',
+    fallback: process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash-lite',
+    maxOutputTokens: Number(process.env.GEMINI_BRIEF_MAX_OUTPUT_TOKENS || 768)
+  },
+  deep: {
+    primary: process.env.GEMINI_DEEP_MODEL || modelName || 'gemini-2.5-pro',
+    fallback: process.env.GEMINI_DEEP_FALLBACK_MODEL || 'gemini-3.5-flash',
+    secondFallback: process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash',
+    maxOutputTokens: Number(process.env.GEMINI_DEEP_MAX_OUTPUT_TOKENS || 2048)
+  }
+};
+const aiConcurrency = Math.max(1, Number(process.env.AI_CONCURRENCY || 2));
 const apiKey = process.env.GEMINI_API_KEY;
 const googleOAuthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
@@ -97,6 +116,37 @@ Debes responder unicamente en JSON valido con esta estructura exacta:
 No incluyas texto fuera del JSON ni bloques de codigo Markdown.
 `.trim();
 
+class AiQueue {
+  constructor(concurrency) {
+    this.concurrency = concurrency;
+    this.active = 0;
+    this.queue = [];
+  }
+
+  run(task) {
+    return new Promise((resolve, reject) => {
+      this.queue.push({ task, resolve, reject });
+      this.next();
+    });
+  }
+
+  next() {
+    if (this.active >= this.concurrency || this.queue.length === 0) return;
+
+    const item = this.queue.shift();
+    this.active += 1;
+
+    item.task()
+      .then(item.resolve)
+      .catch(item.reject)
+      .finally(() => {
+        this.active -= 1;
+        this.next();
+      });
+  }
+}
+
+const aiQueue = new AiQueue(aiConcurrency);
 const fallbackBiblePromises = new Map();
 
 function getTranslationConfig(translationId = 'rvr') {
@@ -248,6 +298,122 @@ function cleanJsonText(text) {
     .trim();
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isRetryableAiError(error) {
+  const message = String(error?.message || '');
+  return message.includes('"code":429')
+    || message.includes('RESOURCE_EXHAUSTED')
+    || message.includes('resource exhausted')
+    || message.includes('"code":503')
+    || message.includes('UNAVAILABLE')
+    || message.includes('"code":500');
+}
+
+function normalizeAiTask(task = 'chat', depth = 'brief') {
+  if (task === 'explain' || task === 'compare') {
+    return depth === 'deep' ? 'deep' : 'brief';
+  }
+
+  if (task === 'deep') return 'deep';
+  if (task === 'brief') return 'brief';
+  return 'chat';
+}
+
+function getThinkingConfig(model, profileName) {
+  if (model.startsWith('gemini-3.')) {
+    return {
+      thinkingLevel: profileName === 'deep' ? 'LOW' : 'MINIMAL'
+    };
+  }
+
+  if (model.startsWith('gemini-2.5-flash') || model.startsWith('gemini-2.5-flash-lite')) {
+    return {
+      thinkingBudget: profileName === 'deep' ? 1024 : 0
+    };
+  }
+
+  if (model.startsWith('gemini-2.5-pro')) {
+    return {
+      thinkingBudget: 128
+    };
+  }
+
+  return undefined;
+}
+
+function getModelAttempts(profileName) {
+  const profile = modelProfiles[profileName] || modelProfiles.chat;
+  return [profile.primary, profile.fallback, profile.secondFallback]
+    .filter(Boolean)
+    .filter((model, index, models) => models.indexOf(model) === index);
+}
+
+async function generateWithRetries({ model, profileName, contents, config }) {
+  const attempts = Number(process.env.AI_RETRY_ATTEMPTS || 3);
+  let lastError;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const thinkingConfig = getThinkingConfig(model, profileName);
+      return await ai.models.generateContent({
+        model,
+        contents,
+        config: {
+          ...config,
+          ...(thinkingConfig ? { thinkingConfig } : {})
+        }
+      });
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableAiError(error) || attempt === attempts - 1) break;
+      const delay = 700 * (2 ** attempt) + Math.floor(Math.random() * 250);
+      await sleep(delay);
+    }
+  }
+
+  throw lastError;
+}
+
+async function generateWithModelFallback({ profileName, contents }) {
+  const profile = modelProfiles[profileName] || modelProfiles.chat;
+  const models = getModelAttempts(profileName);
+  const errors = [];
+
+  for (const model of models) {
+    try {
+      const result = await aiQueue.run(() => generateWithRetries({
+        model,
+        profileName,
+        contents,
+        config: {
+          systemInstruction,
+          responseMimeType: 'application/json',
+          temperature: profileName === 'deep' ? 0.45 : 0.35,
+          maxOutputTokens: profile.maxOutputTokens
+        }
+      }));
+
+      return { result, modelUsed: model, fallbackUsed: model !== models[0], errors };
+    } catch (error) {
+      errors.push({ model, error: error.message });
+      if (!isRetryableAiError(error)) break;
+    }
+  }
+
+  const last = errors[errors.length - 1];
+  const error = new Error(last?.error || 'No hubo modelos disponibles para responder.');
+  error.modelErrors = errors;
+  throw error;
+}
+
+function trimContentsForTask(contents, profileName) {
+  const maxMessages = profileName === 'chat' ? 8 : 4;
+  return contents.slice(-maxMessages);
+}
+
 async function verifyGoogleToken(idToken) {
   const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
   if (!response.ok) throw new Error('Token de Google invalido');
@@ -267,6 +433,16 @@ async function verifyGoogleToken(idToken) {
 
 async function requireGoogleUser(req, res, next) {
   try {
+    if (process.env.AI_AUTH_BYPASS === 'true') {
+      req.user = {
+        uid: 'local-dev-user',
+        email: 'local-dev@example.com',
+        name: 'Local Dev',
+        picture: ''
+      };
+      return next();
+    }
+
     const header = req.headers.authorization || '';
     const token = header.startsWith('Bearer ') ? header.slice('Bearer '.length) : '';
     if (!token) return res.status(401).json({ error: 'Inicia sesion con Google para usar la IA.' });
@@ -294,7 +470,14 @@ async function saveAiHistory(user, payload) {
 }
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', model: modelName, project, location });
+  res.json({
+    status: 'ok',
+    model: modelName,
+    modelProfiles,
+    aiConcurrency,
+    project,
+    location
+  });
 });
 
 app.get('/api/bible/translations', (req, res) => {
@@ -440,30 +623,26 @@ app.get('/api/me/history', requireGoogleUser, async (req, res) => {
 
 app.post('/api/chat', requireGoogleUser, async (req, res) => {
   try {
-    const { messages } = req.body;
+    const { messages, task = 'chat', depth = 'brief' } = req.body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: 'La solicitud debe contener un arreglo de mensajes no vacio.' });
     }
 
-    const contents = messages.map(message => ({
+    const profileName = normalizeAiTask(task, depth);
+    const contents = trimContentsForTask(messages.map(message => ({
       role: message.role === 'model' || message.role === 'assistant' ? 'model' : 'user',
       parts: Array.isArray(message.parts)
         ? message.parts
         : [{ text: String(message.content || '') }]
-    }));
+    })), profileName);
 
-    const result = await ai.models.generateContent({
-      model: modelName,
-      contents,
-      config: {
-        systemInstruction,
-        responseMimeType: 'application/json',
-        temperature: 0.5
-      }
+    const aiResult = await generateWithModelFallback({
+      profileName,
+      contents
     });
 
-    const textResponse = cleanJsonText(extractText(result));
+    const textResponse = cleanJsonText(extractText(aiResult.result));
     if (!textResponse) {
       return res.status(500).json({ error: 'La IA devolvio una respuesta vacia.' });
     }
@@ -479,11 +658,19 @@ app.post('/api/chat', requireGoogleUser, async (req, res) => {
       success: true,
       response: aiData.response,
       topic_tags: aiData.topic_tags || [],
-      related_verses: aiData.related_verses || []
+      related_verses: aiData.related_verses || [],
+      model: aiResult.modelUsed,
+      fallback: aiResult.fallbackUsed,
+      profile: profileName
     };
 
     await saveAiHistory(req.user, {
       messages,
+      task,
+      depth,
+      profile: profileName,
+      model: aiResult.modelUsed,
+      fallback: aiResult.fallbackUsed,
       response: responsePayload.response,
       topic_tags: responsePayload.topic_tags,
       related_verses: responsePayload.related_verses
@@ -494,7 +681,8 @@ app.post('/api/chat', requireGoogleUser, async (req, res) => {
     console.error('Error al comunicarse con Gemini/Vertex AI:', error);
     res.status(500).json({
       error: 'Error interno del microservicio biblico.',
-      details: error.message
+      details: error.message,
+      modelErrors: error.modelErrors || []
     });
   }
 });

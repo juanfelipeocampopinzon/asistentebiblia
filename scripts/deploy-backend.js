@@ -43,7 +43,14 @@ async function main() {
       GOOGLE_CLOUD_PROJECT: PROJECT_ID,
       FIRESTORE_DATABASE_ID: '(default)',
       GOOGLE_CLOUD_LOCATION: 'global',
-      GEMINI_MODEL: 'gemini-2.5-pro',
+      GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
+      GEMINI_CHAT_MODEL: process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash-lite',
+      GEMINI_BRIEF_MODEL: process.env.GEMINI_BRIEF_MODEL || 'gemini-2.5-flash',
+      GEMINI_DEEP_MODEL: process.env.GEMINI_DEEP_MODEL || 'gemini-2.5-pro',
+      GEMINI_DEEP_FALLBACK_MODEL: process.env.GEMINI_DEEP_FALLBACK_MODEL || 'gemini-3.5-flash',
+      GEMINI_FALLBACK_MODEL: process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash-lite',
+      AI_CONCURRENCY: process.env.AI_CONCURRENCY || '2',
+      AI_RETRY_ATTEMPTS: process.env.AI_RETRY_ATTEMPTS || '3',
       GOOGLE_OAUTH_CLIENT_ID: process.env.GOOGLE_OAUTH_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
     }
   });
