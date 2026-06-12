@@ -11,7 +11,7 @@ import { TranslationPicker } from './translation-picker'
 import { ReaderSettingsSheet } from './reader-settings'
 import { SearchDialog } from './search-dialog'
 import { AIChat } from './ai-chat'
-import { BookOpen, Search, Bookmark, ChevronDown } from 'lucide-react'
+import { BookOpen, Search, Bookmark, ChevronDown, Home, Maximize2, Minimize2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { GoogleSession } from '@/components/auth/google-session'
 
@@ -37,10 +37,12 @@ export function ReaderLayout({
     fontSize: 'lg',
     fontFamily: 'serif',
     lineHeight: 'relaxed',
+    columnWidth: 'comfortable',
     theme: 'light'
   })
   const [bookSelectorOpen, setBookSelectorOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [focusMode, setFocusMode] = useState(false)
 
   useEffect(() => {
     setSettings(getReaderSettings())
@@ -75,21 +77,26 @@ export function ReaderLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={cn('min-h-screen bg-background', focusMode && 'bg-muted/30')}>
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-        <div className="container flex items-center justify-between h-14 px-4">
+      <header className={cn(
+        'sticky top-0 z-40 border-b bg-background/85 backdrop-blur-xl transition-transform',
+        focusMode && '-translate-y-full md:translate-y-0 md:bg-background/55'
+      )}>
+        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4">
           {/* Left: Logo */}
           <Link href="/" className="flex items-center gap-2 font-semibold">
-            <BookOpen className="h-5 w-5 text-primary" />
-            <span className="hidden sm:inline">Biblia</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <BookOpen className="h-5 w-5" />
+            </span>
+            <span className="hidden sm:inline">Asistente Biblico</span>
           </Link>
 
           {/* Center: Book/Chapter Selector */}
           <Button
             variant="ghost"
             onClick={() => setBookSelectorOpen(true)}
-            className="gap-1"
+            className="h-10 gap-1 rounded-full border bg-card px-4 shadow-sm"
           >
             <span className="font-medium">{bookName} {chapter}</span>
             <ChevronDown className="h-4 w-4" />
@@ -101,12 +108,17 @@ export function ReaderLayout({
               value={translation}
               onChange={handleTranslationChange}
             />
-            <GoogleSession />
-            <AIChat currentContext={{ book: bookName, chapter }} />
+            <div className="hidden lg:block">
+              <GoogleSession />
+            </div>
+            <div className="hidden sm:block">
+              <AIChat currentContext={{ book: bookName, chapter }} />
+            </div>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setSearchOpen(true)}
+              className="hidden sm:inline-flex"
             >
               <Search className="h-5 w-5" />
               <span className="sr-only">Buscar</span>
@@ -125,14 +137,47 @@ export function ReaderLayout({
               settings={settings}
               onSettingsChange={handleSettingsChange}
             />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setFocusMode(value => !value)}
+              title={focusMode ? 'Salir de modo concentracion' : 'Modo concentracion'}
+            >
+              {focusMode ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+              <span className="sr-only">Modo concentracion</span>
+            </Button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container max-w-3xl mx-auto px-4 py-6">
+      <main className={cn('mx-auto w-full px-4 pb-24 pt-6 transition-all md:pb-10', focusMode ? 'max-w-3xl' : 'max-w-4xl')}>
         {children}
       </main>
+
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/90 backdrop-blur-xl sm:hidden">
+        <div className="mx-auto grid h-16 max-w-md grid-cols-5 px-2 text-xs">
+          <Link href="/" className="flex flex-col items-center justify-center gap-1 text-muted-foreground">
+            <Home className="h-5 w-5" />
+            Inicio
+          </Link>
+          <button type="button" onClick={() => setBookSelectorOpen(true)} className="flex flex-col items-center justify-center gap-1 text-muted-foreground">
+            <BookOpen className="h-5 w-5" />
+            Leer
+          </button>
+          <button type="button" onClick={() => setSearchOpen(true)} className="flex flex-col items-center justify-center gap-1 text-muted-foreground">
+            <Search className="h-5 w-5" />
+            Buscar
+          </button>
+          <div className="flex items-center justify-center">
+            <AIChat currentContext={{ book: bookName, chapter }} />
+          </div>
+          <Link href="/bookmarks" className="flex flex-col items-center justify-center gap-1 text-muted-foreground">
+            <Bookmark className="h-5 w-5" />
+            Guardados
+          </Link>
+        </div>
+      </nav>
 
       {/* Book Selector Dialog */}
       <BookSelector

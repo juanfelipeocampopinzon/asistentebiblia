@@ -27,9 +27,15 @@ const fontSizes = [
 ] as const
 
 const themes = [
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'light', label: 'Claro', icon: Sun },
+  { value: 'dark', label: 'Oscuro', icon: Moon },
   { value: 'sepia', label: 'Sepia', icon: BookOpen },
+] as const
+
+const columnWidths = [
+  { value: 'narrow', label: 'Estrecho' },
+  { value: 'comfortable', label: 'Comodo' },
+  { value: 'wide', label: 'Amplio' },
 ] as const
 
 export function ReaderSettingsSheet({ settings, onSettingsChange }: ReaderSettingsSheetProps) {
@@ -52,18 +58,18 @@ export function ReaderSettingsSheet({ settings, onSettingsChange }: ReaderSettin
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon">
           <Settings className="h-5 w-5" />
-          <span className="sr-only">Reader settings</span>
+          <span className="sr-only">Ajustes de lectura</span>
         </Button>
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>Reading Settings</SheetTitle>
+          <SheetTitle>Ajustes de lectura</SheetTitle>
         </SheetHeader>
         
         <div className="space-y-6 py-6">
           {/* Font Size */}
           <div className="space-y-2">
-            <Label>Font Size</Label>
+            <Label>Tamano de texto</Label>
             <div className="flex items-center gap-4">
               <Button
                 variant="outline"
@@ -98,7 +104,7 @@ export function ReaderSettingsSheet({ settings, onSettingsChange }: ReaderSettin
 
           {/* Font Family */}
           <div className="space-y-2">
-            <Label>Font Style</Label>
+            <Label>Estilo de fuente</Label>
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant={settings.fontFamily === 'serif' ? 'default' : 'outline'}
@@ -119,14 +125,14 @@ export function ReaderSettingsSheet({ settings, onSettingsChange }: ReaderSettin
 
           {/* Line Height */}
           <div className="space-y-2">
-            <Label>Line Spacing</Label>
+            <Label>Espaciado</Label>
             <div className="grid grid-cols-3 gap-2">
               <Button
                 variant={settings.lineHeight === 'normal' ? 'default' : 'outline'}
                 onClick={() => onSettingsChange({ lineHeight: 'normal' })}
                 size="sm"
               >
-                Tight
+                Ajustado
               </Button>
               <Button
                 variant={settings.lineHeight === 'relaxed' ? 'default' : 'outline'}
@@ -140,14 +146,30 @@ export function ReaderSettingsSheet({ settings, onSettingsChange }: ReaderSettin
                 onClick={() => onSettingsChange({ lineHeight: 'loose' })}
                 size="sm"
               >
-                Loose
+                Amplio
               </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Ancho de columna</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {columnWidths.map(({ value, label }) => (
+                <Button
+                  key={value}
+                  variant={settings.columnWidth === value ? 'default' : 'outline'}
+                  onClick={() => onSettingsChange({ columnWidth: value })}
+                  size="sm"
+                >
+                  {label}
+                </Button>
+              ))}
             </div>
           </div>
 
           {/* Theme */}
           <div className="space-y-2">
-            <Label>Theme</Label>
+            <Label>Tema</Label>
             <div className="grid grid-cols-3 gap-2">
               {themes.map(({ value, label, icon: Icon }) => (
                 <Button

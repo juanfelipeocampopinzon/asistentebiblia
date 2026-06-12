@@ -131,6 +131,7 @@ export default function ReadPage({ params }: PageProps) {
         fontSize={settings.fontSize}
         fontFamily={settings.fontFamily}
         lineHeight={settings.lineHeight}
+        columnWidth={settings.columnWidth}
       />
       
       {navigation && (

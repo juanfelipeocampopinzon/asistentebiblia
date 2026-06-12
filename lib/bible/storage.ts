@@ -114,6 +114,7 @@ const DEFAULT_SETTINGS: ReaderSettings = {
   fontSize: 'lg',
   fontFamily: 'serif',
   lineHeight: 'relaxed',
+  columnWidth: 'comfortable',
   theme: 'light'
 }
 

@@ -74,5 +74,6 @@ export interface ReaderSettings {
   fontSize: 'sm' | 'base' | 'lg' | 'xl' | '2xl'
   fontFamily: 'serif' | 'sans'
   lineHeight: 'normal' | 'relaxed' | 'loose'
+  columnWidth: 'narrow' | 'comfortable' | 'wide'
   theme: 'light' | 'dark' | 'sepia'
 }
