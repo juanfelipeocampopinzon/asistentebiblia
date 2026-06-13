@@ -1,6 +1,7 @@
 const fs = require('fs');
 const https = require('https');
 const path = require('path');
+const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 
 const { GoogleAuth } = require('../backend/node_modules/google-auth-library');
@@ -45,14 +46,47 @@ function ensureCredentials() {
 }
 
 async function getAccessToken() {
-  applyClockOffset();
   ensureCredentials();
 
-  const auth = new GoogleAuth({
-    scopes: ['https://www.googleapis.com/auth/cloud-platform']
+  const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
+  const offsetMinutes = Number(process.env.CLOCK_OFFSET_MINUTES || 0);
+  const now = Math.floor((Date.now() + offsetMinutes * 60 * 1000) / 1000);
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const claim = {
+    iss: credentials.client_email,
+    scope: 'https://www.googleapis.com/auth/cloud-platform',
+    aud: credentials.token_uri || 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3300
+  };
+
+  const encode = (value) => Buffer
+    .from(JSON.stringify(value))
+    .toString('base64url');
+  const unsignedJwt = `${encode(header)}.${encode(claim)}`;
+  const signature = crypto
+    .createSign('RSA-SHA256')
+    .update(unsignedJwt)
+    .sign(credentials.private_key, 'base64url');
+  const assertion = `${unsignedJwt}.${signature}`;
+
+  const form = new URLSearchParams({
+    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+    assertion
   });
-  const client = await auth.getClient();
-  return (await client.getAccessToken()).token;
+
+  const response = await fetch(credentials.token_uri || 'https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: form
+  });
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(`${payload.error}: ${payload.error_description || JSON.stringify(payload)}`);
+  }
+
+  return payload.access_token;
 }
 
 async function request({ host, path: requestPath, method = 'GET', token, headers = {}, body }) {
