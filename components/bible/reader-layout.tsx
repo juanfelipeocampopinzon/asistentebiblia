@@ -14,6 +14,7 @@ import { AIChat } from './ai-chat'
 import { BookOpen, Search, Bookmark, ChevronDown, Home, Maximize2, Minimize2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { GoogleSession } from '@/components/auth/google-session'
+import { SiteFooter } from '@/components/site/site-footer'
 
 interface ReaderLayoutProps {
   children: React.ReactNode
@@ -89,7 +90,7 @@ export function ReaderLayout({
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <BookOpen className="h-5 w-5" />
             </span>
-            <span className="hidden sm:inline">Asistente Biblico</span>
+            <span className="hidden sm:inline">Kairos Bible</span>
           </Link>
 
           {/* Center: Book/Chapter Selector */}
@@ -154,6 +155,8 @@ export function ReaderLayout({
       <main className={cn('mx-auto w-full px-4 pb-24 pt-6 transition-all md:pb-10', focusMode ? 'max-w-3xl' : 'max-w-4xl')}>
         {children}
       </main>
+
+      {!focusMode && <SiteFooter />}
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/90 backdrop-blur-xl sm:hidden">
         <div className="mx-auto grid h-16 max-w-md grid-cols-5 px-2 text-xs">

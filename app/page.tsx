@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { AdUnit } from '@/components/ads/ad-unit'
 import { GoogleSession } from '@/components/auth/google-session'
+import { SiteFooter } from '@/components/site/site-footer'
 import {
   ArrowRight,
   BarChart3,
@@ -92,7 +93,7 @@ export default function HomePage() {
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
               <BookOpen className="h-5 w-5" />
             </span>
-            <span>Asistente Biblico</span>
+            <span>Kairos Bible</span>
           </Link>
 
           <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
@@ -117,7 +118,7 @@ export default function HomePage() {
           <div>
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border bg-card/80 px-3 py-1 text-sm text-muted-foreground shadow-sm">
               <Sparkles className="h-4 w-4 text-primary" />
-              Lectura biblica, estudio e IA en un solo lugar
+              Kairos Bible: lectura biblica, estudio e IA
             </div>
 
             <h1 className="max-w-4xl text-4xl font-semibold tracking-tight text-foreground md:text-6xl">
@@ -276,6 +277,7 @@ export default function HomePage() {
 
         <AdUnit placement="home" className="mt-12 max-w-4xl" />
       </main>
+      <SiteFooter />
     </div>
   )
 }

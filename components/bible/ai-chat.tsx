@@ -117,7 +117,7 @@ export function AIChat({ currentContext }: AIChatProps) {
         <SheetHeader className="px-4 py-3 border-b shrink-0">
           <SheetTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-primary" />
-            Asistente Biblico IA
+            Kairos IA
           </SheetTitle>
         </SheetHeader>
 

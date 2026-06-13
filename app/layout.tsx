@@ -18,13 +18,19 @@ const geistMono = Geist_Mono({
 const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT || ''
 
 export const metadata: Metadata = {
-  title: 'Biblia IA',
-  description: 'Lectura bíblica en español con búsqueda, guardados e IA para explicar y comparar versículos.',
-  keywords: ['Biblia', 'Escritura', 'RVR', 'IA bíblica', 'Fe'],
-  authors: [{ name: 'Biblia IA' }],
+  metadataBase: new URL('https://kairos-bible.com'),
+  title: {
+    default: 'Kairos Bible',
+    template: '%s | Kairos Bible'
+  },
+  description: 'Lee, compara y estudia la Biblia en espanol con ayuda de IA.',
+  keywords: ['Biblia', 'Kairos Bible', 'Escritura', 'RVR', 'IA biblica', 'Estudio biblico'],
+  authors: [{ name: 'Kairos Bible' }],
   openGraph: {
-    title: 'Biblia IA',
-    description: 'Lee y estudia la Biblia en español con ayuda de IA',
+    title: 'Kairos Bible',
+    description: 'Lee, compara y estudia la Biblia con ayuda de IA.',
+    url: 'https://kairos-bible.com',
+    siteName: 'Kairos Bible',
     type: 'website',
   },
 }

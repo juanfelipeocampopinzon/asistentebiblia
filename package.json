@@ -11,7 +11,8 @@
     "cloud:deploy:backend": "node scripts/deploy-backend.js",
     "cloud:deploy:frontend": "node scripts/deploy-frontend.js",
     "cloud:deploy": "npm run cloud:deploy:backend && npm run cloud:deploy:frontend",
-    "cloud:seed": "node scripts/seed-bible.js"
+    "cloud:seed": "node scripts/seed-bible.js",
+    "ads:txt": "node scripts/write-ads-txt.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
