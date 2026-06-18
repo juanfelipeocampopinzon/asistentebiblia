@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input'
 import { AdUnit } from '@/components/ads/ad-unit'
 import { GoogleSession } from '@/components/auth/google-session'
 import { SiteFooter } from '@/components/site/site-footer'
+import { Progress } from '@/components/ui/progress'
+import { books } from '@/lib/bible/data/books'
 import {
   ArrowRight,
   BarChart3,
@@ -41,12 +43,97 @@ const quickActions = [
   { label: 'Favoritos', href: '/bookmarks', icon: Heart }
 ]
 
+const dailyVerses = [
+  {
+    reference: 'Genesis 1:1',
+    book: 'genesis',
+    chapter: 1,
+    text: 'En el principio creo Dios los cielos y la tierra.'
+  },
+  {
+    reference: 'Salmos 23:1',
+    book: 'psalms',
+    chapter: 23,
+    text: 'Jehova es mi pastor; nada me faltara.'
+  },
+  {
+    reference: 'Proverbios 3:5',
+    book: 'proverbs',
+    chapter: 3,
+    text: 'Fiate de Jehova de todo tu corazon, y no te apoyes en tu propia prudencia.'
+  },
+  {
+    reference: 'Isaias 41:10',
+    book: 'isaiah',
+    chapter: 41,
+    text: 'No temas, porque yo estoy contigo; no desmayes, porque yo soy tu Dios.'
+  },
+  {
+    reference: 'Mateo 5:14',
+    book: 'matthew',
+    chapter: 5,
+    text: 'Vosotros sois la luz del mundo; una ciudad asentada sobre un monte no se puede esconder.'
+  },
+  {
+    reference: 'Juan 1:1',
+    book: 'john',
+    chapter: 1,
+    text: 'En el principio era el Verbo, y el Verbo era con Dios, y el Verbo era Dios.'
+  },
+  {
+    reference: 'Juan 3:16',
+    book: 'john',
+    chapter: 3,
+    text: 'Porque de tal manera amo Dios al mundo, que ha dado a su Hijo unigenito.'
+  },
+  {
+    reference: 'Romanos 8:28',
+    book: 'romans',
+    chapter: 8,
+    text: 'Y sabemos que a los que aman a Dios, todas las cosas les ayudan a bien.'
+  },
+  {
+    reference: 'Filipenses 4:6',
+    book: 'philippians',
+    chapter: 4,
+    text: 'Por nada esteis afanosos, sino sean conocidas vuestras peticiones delante de Dios.'
+  },
+  {
+    reference: 'Hebreos 11:1',
+    book: 'hebrews',
+    chapter: 11,
+    text: 'Es, pues, la fe la certeza de lo que se espera, la conviccion de lo que no se ve.'
+  }
+]
+
+const totalBibleChapters = books.reduce((total, book) => total + book.chapters, 0)
+
+function getDailyVerse() {
+  const dayKey = Math.floor(Date.now() / 86_400_000)
+  return dailyVerses[dayKey % dailyVerses.length]
+}
+
+function getProgressPercent(progress: ReadingProgress | null) {
+  if (!progress) return 0
+
+  const currentBook = books.find(book => book.id === progress.book)
+  if (!currentBook) return 0
+
+  const previousChapters = books
+    .filter(book => book.order < currentBook.order)
+    .reduce((total, book) => total + book.chapters, 0)
+  const chapterPosition = previousChapters + progress.chapter
+
+  return Math.min(100, Math.max(1, Math.round((chapterPosition / totalBibleChapters) * 100)))
+}
+
 export default function HomePage() {
   const [progress, setProgress] = useState<ReadingProgress | null>(null)
   const [progressBookName, setProgressBookName] = useState('')
   const [bookmarkCount, setBookmarkCount] = useState(0)
   const [highlightCount, setHighlightCount] = useState(0)
   const [query, setQuery] = useState('')
+  const [dailyVerse] = useState(getDailyVerse)
 
   useEffect(() => {
     const savedProgress = getReadingProgress()
@@ -85,13 +172,15 @@ export default function HomePage() {
     return '/read/rvr/genesis/1'
   }, [query])
 
+  const readingProgressPercent = getProgressPercent(progress)
+
   return (
     <div className="min-h-screen overflow-hidden bg-background">
       <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-3 font-semibold">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-              <BookOpen className="h-5 w-5" />
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-sm">
+              <img src="/kairos-icon.svg" alt="" className="h-7 w-7" />
             </span>
             <span>Kairos Bible</span>
           </Link>
@@ -163,17 +252,17 @@ export default function HomePage() {
               <CardHeader className="border-b bg-gradient-to-br from-primary/10 via-transparent to-secondary/20">
                 <CardDescription>Versiculo del dia</CardDescription>
                 <CardTitle className="font-serif text-2xl leading-relaxed">
-                  En el principio creo Dios los cielos y la tierra.
+                  {dailyVerse.text}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5 p-6">
                 <div className="flex items-center justify-between rounded-2xl bg-muted/60 p-4">
                   <div>
-                    <p className="text-sm font-medium">Genesis 1:1</p>
+                    <p className="text-sm font-medium">{dailyVerse.reference}</p>
                     <p className="text-xs text-muted-foreground">Reina-Valera</p>
                   </div>
                   <Button variant="secondary" asChild>
-                    <Link href="/read/rvr/genesis/1">Abrir</Link>
+                    <Link href={`/read/rvr/${dailyVerse.book}/${dailyVerse.chapter}`}>Abrir</Link>
                   </Button>
                 </div>
                 <div className="grid grid-cols-3 gap-3 text-center">
@@ -217,8 +306,12 @@ export default function HomePage() {
               <CardTitle>{progress ? `${progressBookName} ${progress.chapter}` : 'Empieza en Genesis 1'}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 h-2 rounded-full bg-muted">
-                <div className="h-2 w-1/3 rounded-full bg-primary" />
+              <div className="mb-4 space-y-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{progress ? 'Progreso estimado de lectura' : 'Aun no has iniciado una lectura'}</span>
+                  <span>{readingProgressPercent}%</span>
+                </div>
+                <Progress value={readingProgressPercent} aria-label="Progreso de lectura biblica" />
               </div>
               <Button asChild>
                 <Link href={progress ? `/read/rvr/${progress.book}/${progress.chapter}` : '/read/rvr/genesis/1'}>

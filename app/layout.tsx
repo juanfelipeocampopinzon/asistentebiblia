@@ -25,6 +25,15 @@ export const metadata: Metadata = {
   description: 'Lee, compara y estudia la Biblia en espanol con ayuda de IA.',
   keywords: ['Biblia', 'Kairos Bible', 'Escritura', 'RVR', 'IA biblica', 'Estudio biblico'],
   authors: [{ name: 'Kairos Bible' }],
+  icons: {
+    icon: [
+      { url: '/kairos-icon.svg', type: 'image/svg+xml' },
+      { url: '/icon-light-32x32.png', media: '(prefers-color-scheme: light)' },
+      { url: '/icon-dark-32x32.png', media: '(prefers-color-scheme: dark)' }
+    ],
+    shortcut: '/kairos-icon.svg',
+    apple: '/apple-icon.png'
+  },
   openGraph: {
     title: 'Kairos Bible',
     description: 'Lee, compara y estudia la Biblia con ayuda de IA.',
