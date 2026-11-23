@@ -5,6 +5,11 @@
 > Plataforma web para leer, comparar y estudiar la Biblia con inteligencia artificial, en español e inglés.
 
 <!-- Add 2-3 screenshots here: home, reader, AI chat -->
+<img width="1382" height="1198" alt="imagen" src="https://github.com/user-attachments/assets/57d894dc-f4e0-4e10-afe7-5ac4db6431c4" />
+<img width="969" height="1146" alt="imagen" src="https://github.com/user-attachments/assets/5e05250b-5dbb-48fc-b1da-6728cdbfdcf5" />
+<img width="450" height="211" alt="imagen" src="https://github.com/user-attachments/assets/c41dd9c7-ba54-40f5-83c8-2bd4bfbc6f53" />
+
+
 
 ## Features
 
